@@ -10,6 +10,12 @@ from .imagery import ImageryProvider
 from .dem import DEMProvider
 
 
+# Constants for stereo geometry calculations
+EARTH_CIRCUMFERENCE_METERS = 40075017  # Earth's equatorial circumference in meters
+METERS_PER_DEGREE_EQUATOR = 111000  # Approximate meters per degree at equator
+DEFAULT_FLYING_HEIGHT_METERS = 5000  # Default virtual camera height for stereo calculations
+
+
 class StereoGenerator:
     """
     Generator for creating stereo image pairs from satellite imagery and DEM data.
@@ -117,11 +123,11 @@ class StereoGenerator:
         """
         # Estimate ground sampling distance (GSD) based on zoom level
         # At zoom 17, GSD is approximately 1.2 meters at equator
-        gsd_meters = (40075017 * math.cos(math.radians(center_lat))) / (2 ** (zoom + 8))
+        gsd_meters = (EARTH_CIRCUMFERENCE_METERS * math.cos(math.radians(center_lat))) / (2 ** (zoom + 8))
 
         # Estimate flying height (assuming typical aerial photography)
         # For satellite imagery, this is more of a virtual camera height
-        flying_height = 5000  # meters, typical for aerial stereo
+        flying_height = DEFAULT_FLYING_HEIGHT_METERS
 
         # Calculate baseline
         baseline = flying_height * base_height_ratio
@@ -131,7 +137,7 @@ class StereoGenerator:
         convergence_rad = math.radians(convergence_angle)
 
         # Offset in degrees (approximate)
-        meters_per_degree = 111000 * math.cos(math.radians(center_lat))
+        meters_per_degree = METERS_PER_DEGREE_EQUATOR * math.cos(math.radians(center_lat))
         offset_degrees = (baseline / 2) / meters_per_degree
 
         left_lon = center_lon - offset_degrees

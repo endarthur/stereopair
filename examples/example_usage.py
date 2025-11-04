@@ -114,12 +114,14 @@ def example_with_custom_dem():
 
     import os
 
-    # Check if a DEM file is provided
-    dem_file = "path/to/your/dem.tif"  # Update this path
+    # Check if a DEM file is provided via environment variable or use default
+    dem_file = os.environ.get("STEREOPAIR_DEM_PATH", "path/to/your/dem.tif")
 
     if not os.path.exists(dem_file):
         print(f"\nSkipping: DEM file not found at {dem_file}")
-        print("To use this example, provide a valid GeoTIFF DEM file path")
+        print("To use this example, either:")
+        print("  1. Set STEREOPAIR_DEM_PATH environment variable, or")
+        print("  2. Provide a valid GeoTIFF DEM file path in the script")
         return
 
     # Initialize imagery and DEM providers
