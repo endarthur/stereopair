@@ -12,6 +12,7 @@ __author__ = "Arthur Endlein"
 from .generator import StereoGenerator
 from .imagery import ImageryProvider, GoogleImageryProvider, ESRIImageryProvider, BingImageryProvider
 from .dem import DEMProvider, CustomDEMProvider
+from .dem_cache import CachedDEMProvider, DEMTileCache
 
 __all__ = [
     "StereoGenerator",
@@ -21,4 +22,6 @@ __all__ = [
     "BingImageryProvider",
     "DEMProvider",
     "CustomDEMProvider",
+    "CachedDEMProvider",
+    "DEMTileCache",
 ]
