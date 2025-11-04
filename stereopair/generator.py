@@ -4,7 +4,7 @@ Stereo pair generator - core functionality for creating stereo image pairs.
 
 import numpy as np
 from PIL import Image
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional, Dict, Any, Union
 import math
 from .imagery import ImageryProvider
 from .dem import DEMProvider
@@ -43,10 +43,12 @@ class StereoGenerator:
         self,
         center_lat: float,
         center_lon: float,
-        zoom: int = 17,
+        zoom: Optional[int] = None,
+        scale: Optional[Union[int, float, str]] = None,
         base_height_ratio: float = 0.6,
         convergence_angle: float = 10.0,
-        image_size: Tuple[int, int] = (512, 512),
+        image_size: Optional[Union[Tuple[int, int], str]] = None,
+        flying_height: float = 5000.0,
     ) -> Tuple[Optional[Image.Image], Optional[Image.Image], Dict[str, Any]]:
         """
         Generate a stereo pair of images centered at the given location.
@@ -54,17 +56,48 @@ class StereoGenerator:
         Args:
             center_lat: Center latitude in decimal degrees
             center_lon: Center longitude in decimal degrees
-            zoom: Zoom level for imagery (higher = more detail, typically 15-19)
+            zoom: Zoom level for imagery (0-20). If None, must provide scale.
+            scale: Map scale as number (5000) or string ("1:5000"). Alternative to zoom.
             base_height_ratio: Ratio of baseline to flying height (0.5-0.8 typical)
                               Higher values give more pronounced 3D effect
             convergence_angle: Convergence angle in degrees (5-15 typical)
                               Angle between the two camera viewing directions
-            image_size: Size of output images in pixels (width, height)
+            image_size: Output image size as (width, height) in pixels, or standard size name
+                       (e.g., "23x23_cm", "medium"). If None, defaults to (512, 512).
+            flying_height: Flying height above ground in meters (default 5000m)
 
         Returns:
             Tuple of (left_image, right_image, metadata_dict)
-            metadata includes camera parameters and geometry
+            metadata includes camera parameters and stereo geometry
+            
+        Raises:
+            ValueError: If neither zoom nor scale is provided, or both are provided
         """
+        from .utils import parse_scale, scale_to_zoom_level, zoom_level_to_gsd, get_image_size_pixels
+        
+        # Validate inputs
+        if zoom is None and scale is None:
+            raise ValueError("Must provide either 'zoom' or 'scale' parameter")
+        if zoom is not None and scale is not None:
+            raise ValueError("Cannot provide both 'zoom' and 'scale' parameters")
+        
+        # Convert scale to zoom if needed
+        if scale is not None:
+            scale_value = parse_scale(scale)
+            zoom = scale_to_zoom_level(scale_value, center_lat, flying_height)
+        
+        # Calculate GSD for this zoom level
+        gsd = zoom_level_to_gsd(zoom, center_lat)
+        
+        # Determine image size
+        if image_size is None:
+            final_image_size = (512, 512)
+        elif isinstance(image_size, str):
+            # Standard photo size - calculate pixels from GSD
+            final_image_size = get_image_size_pixels(image_size, gsd)
+        else:
+            final_image_size = image_size
+        
         # Get base imagery
         base_image = self.imagery_provider.get_tile(center_lat, center_lon, zoom)
         if base_image is None:
@@ -72,8 +105,16 @@ class StereoGenerator:
 
         # Calculate stereo geometry
         metadata = self._calculate_stereo_geometry(
-            center_lat, center_lon, zoom, base_height_ratio, convergence_angle
+            center_lat, center_lon, zoom, base_height_ratio, convergence_angle, flying_height
         )
+        
+        # Add scale information to metadata
+        metadata["scale"] = {
+            "gsd_meters": gsd,
+            "flying_height_meters": flying_height,
+        }
+        if scale is not None:
+            metadata["scale"]["map_scale"] = scale_value
 
         # Get left and right camera positions
         left_lat, left_lon = metadata["left_camera"]["lat"], metadata["left_camera"]["lon"]
@@ -94,9 +135,9 @@ class StereoGenerator:
 
         # Resize to requested size
         if left_image:
-            left_image = left_image.resize(image_size, Image.Resampling.LANCZOS)
+            left_image = left_image.resize(final_image_size, Image.Resampling.LANCZOS)
         if right_image:
-            right_image = right_image.resize(image_size, Image.Resampling.LANCZOS)
+            right_image = right_image.resize(final_image_size, Image.Resampling.LANCZOS)
 
         return left_image, right_image, metadata
 
@@ -107,6 +148,7 @@ class StereoGenerator:
         zoom: int,
         base_height_ratio: float,
         convergence_angle: float,
+        flying_height: float = DEFAULT_FLYING_HEIGHT_METERS,
     ) -> Dict[str, Any]:
         """
         Calculate stereo camera geometry.
@@ -117,6 +159,7 @@ class StereoGenerator:
             zoom: Zoom level
             base_height_ratio: Base to height ratio
             convergence_angle: Convergence angle in degrees
+            flying_height: Flying height in meters
 
         Returns:
             Dictionary with camera parameters and positions
@@ -124,10 +167,6 @@ class StereoGenerator:
         # Estimate ground sampling distance (GSD) based on zoom level
         # At zoom 17, GSD is approximately 1.2 meters at equator
         gsd_meters = (EARTH_CIRCUMFERENCE_METERS * math.cos(math.radians(center_lat))) / (2 ** (zoom + 8))
-
-        # Estimate flying height (assuming typical aerial photography)
-        # For satellite imagery, this is more of a virtual camera height
-        flying_height = DEFAULT_FLYING_HEIGHT_METERS
 
         # Calculate baseline
         baseline = flying_height * base_height_ratio
@@ -269,10 +308,12 @@ class StereoGenerator:
         end_lat: float,
         end_lon: float,
         num_positions: int = 5,
-        zoom: int = 17,
+        zoom: Optional[int] = None,
+        scale: Optional[Union[int, float, str]] = None,
         base_height_ratio: float = 0.6,
         convergence_angle: float = 10.0,
-        image_size: Tuple[int, int] = (512, 512),
+        image_size: Optional[Union[Tuple[int, int], str]] = None,
+        flying_height: float = 5000.0,
         overlap_percent: float = 60.0,
     ) -> list:
         """
@@ -287,10 +328,13 @@ class StereoGenerator:
             end_lat: Ending latitude in decimal degrees
             end_lon: Ending longitude in decimal degrees
             num_positions: Number of stereo pair positions along the flight line
-            zoom: Zoom level for imagery (higher = more detail, typically 15-19)
+            zoom: Zoom level for imagery (0-20). If None, must provide scale.
+            scale: Map scale as number (5000) or string ("1:5000"). Alternative to zoom.
             base_height_ratio: Ratio of baseline to flying height (0.5-0.8 typical)
             convergence_angle: Convergence angle in degrees (5-15 typical)
-            image_size: Size of output images in pixels (width, height)
+            image_size: Output image size as (width, height) in pixels, or standard size name.
+                       If None, defaults to (512, 512).
+            flying_height: Flying height above ground in meters (default 5000m)
             overlap_percent: Percentage of overlap between consecutive positions (typical 60-80%)
 
         Returns:
@@ -312,9 +356,11 @@ class StereoGenerator:
                 center_lat=current_lat,
                 center_lon=current_lon,
                 zoom=zoom,
+                scale=scale,
                 base_height_ratio=base_height_ratio,
                 convergence_angle=convergence_angle,
                 image_size=image_size,
+                flying_height=flying_height,
             )
 
             if left is not None and right is not None:
