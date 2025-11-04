@@ -2,19 +2,42 @@
 
 A Python library to generate stereo image pairs from satellite imagery and Digital Elevation Models (DEMs).
 
+## ⚠️ Current Status
+
+**Perspective Transformation Not Yet Implemented**: This library currently provides the infrastructure for generating stereo pairs from satellite imagery, but the DEM-based perspective transformation is **not yet implemented**. 
+
+Currently, the library:
+- ✅ Downloads and caches satellite imagery from Google/ESRI/Bing
+- ✅ Calculates stereo camera geometry (baseline, convergence, positions)
+- ✅ Downloads and caches SRTM DEM tiles automatically
+- ✅ Supports scale-based interface (e.g., `scale="1:5000"`)
+- ✅ Generates aerial survey flight lines with multiple positions
+- ❌ **Does NOT apply perspective transformation** - orthorectified imagery is returned as-is
+
+**What's Missing**: The transformation from orthorectified satellite imagery to perspective views (as seen from an aerial camera) using DEM elevation data. This requires implementing photogrammetric collinearity equations and ray tracing from camera positions through the DEM surface.
+
+The infrastructure is in place in `perspective.py` for future development.
+
 ## Overview
 
 Stereopair allows you to create stereo image pairs for photogrammetric analysis and 3D reconstruction by combining satellite imagery from multiple sources (Google, ESRI, Bing) with elevation data. The library generates left and right stereo images that can be used for depth perception, 3D visualization, and terrain analysis.
 
 ## Features
 
+### Implemented
 - **Multiple Imagery Providers**: Support for Google Satellite, ESRI World Imagery, and Bing satellite imagery
+- **Scale-Based Interface**: Specify scale as `scale=5000` or `scale="1:5000"` instead of zoom levels
+- **Standard Photo Sizes**: Predefined ground coverage sizes (small=500m, medium=1km, large=2km, etc.)
+- **Automatic DEM Caching**: Downloads and caches SRTM tiles from AWS S3 public dataset
 - **Custom DEM Support**: Use your own Digital Elevation Models (GeoTIFF format)
 - **Aerial Survey Mode**: Generate series of stereo pairs simulating an aerial photogrammetric survey
 - **Flexible Parameters**: Control stereo geometry with configurable base-height ratio and convergence angle
 - **Anaglyph Generation**: Automatically create red-cyan 3D anaglyph images
 - **Metadata Export**: Save camera parameters and stereo geometry information
 - **Simple API**: Easy-to-use Python interface
+
+### Not Yet Implemented
+- **DEM-Based Perspective Transformation**: Currently returns orthorectified imagery without applying perspective correction based on terrain elevation. See "Current Status" above.
 
 ## Installation
 
