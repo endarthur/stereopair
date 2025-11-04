@@ -205,3 +205,13 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Stereopair generated files
+demo_stereo*
+example_*.png
+example_*.json
+s11d_mine_output/
+s11d_mine_survey/
+s11d_mine_detailed_survey/
+*_survey/
+survey_output/
