@@ -10,6 +10,7 @@ Stereopair allows you to create stereo image pairs for photogrammetric analysis 
 
 - **Multiple Imagery Providers**: Support for Google Satellite, ESRI World Imagery, and Bing satellite imagery
 - **Custom DEM Support**: Use your own Digital Elevation Models (GeoTIFF format)
+- **Aerial Survey Mode**: Generate series of stereo pairs simulating an aerial photogrammetric survey
 - **Flexible Parameters**: Control stereo geometry with configurable base-height ratio and convergence angle
 - **Anaglyph Generation**: Automatically create red-cyan 3D anaglyph images
 - **Metadata Export**: Save camera parameters and stereo geometry information
@@ -113,6 +114,39 @@ left_image, right_image, metadata = generator.generate_stereo_pair(
 )
 ```
 
+### Generating Aerial Surveys
+
+Generate a series of stereo pairs along a flight line, simulating an aerial photogrammetric survey:
+
+```python
+from stereopair import StereoGenerator, ESRIImageryProvider
+
+# Create generator
+imagery_provider = ESRIImageryProvider()
+generator = StereoGenerator(imagery_provider=imagery_provider)
+
+# Generate aerial survey along a flight line
+survey_results = generator.generate_aerial_survey(
+    start_lat=-6.390,
+    start_lon=-50.385,
+    end_lat=-6.425,
+    end_lon=-50.387,
+    num_positions=5,        # Number of stereo pairs
+    zoom=17,
+    overlap_percent=60.0,   # Standard photogrammetric overlap
+)
+
+# Export all stereo pairs
+generator.export_aerial_survey(
+    survey_results=survey_results,
+    output_dir="survey_output",
+    base_name="my_survey",
+    export_anaglyph=True
+)
+```
+
+This creates multiple stereo pairs with proper overlap for photogrammetric processing.
+
 ## API Reference
 
 ### StereoGenerator
@@ -129,12 +163,23 @@ Main class for generating stereo pairs.
   - `convergence_angle` (float): Convergence angle in degrees (5-15 typical)
   - `image_size` (tuple): Output image size in pixels (width, height)
 
+- `generate_aerial_survey(start_lat, start_lon, end_lat, end_lon, num_positions, zoom, base_height_ratio, convergence_angle, image_size, overlap_percent)`: Generate aerial survey
+  - `start_lat`, `start_lon` (float): Starting position of flight line
+  - `end_lat`, `end_lon` (float): Ending position of flight line
+  - `num_positions` (int): Number of stereo pairs along the flight line
+  - `overlap_percent` (float): Percentage overlap between consecutive positions (typical 60-80%)
+
 - `export_stereo_pair(left_image, right_image, output_prefix, metadata, export_anaglyph)`: Export stereo pair to files
   - `left_image`: Left stereo image
   - `right_image`: Right stereo image
   - `output_prefix`: Prefix for output filenames
   - `metadata`: Optional metadata dictionary
   - `export_anaglyph`: Whether to export anaglyph image (default: True)
+
+- `export_aerial_survey(survey_results, output_dir, base_name, export_anaglyph)`: Export aerial survey results
+  - `survey_results`: List of survey results from generate_aerial_survey()
+  - `output_dir`: Directory to save output files
+  - `base_name`: Base name for output files
 
 - `create_anaglyph(left_image, right_image, method)`: Create anaglyph 3D image
   - `method`: Anaglyph method ('red-cyan', 'red-green', 'red-blue')
@@ -169,6 +214,9 @@ Main class for generating stereo pairs.
 
 ## Running Examples
 
+The `examples/` directory contains several demonstration scripts:
+
+### Basic Examples
 ```bash
 cd examples
 python example_usage.py
@@ -178,6 +226,27 @@ This will generate several stereo pairs demonstrating different features:
 - Basic stereo pair with Google imagery
 - Stereo pair with ESRI imagery
 - Terrain-corrected stereo pair with custom DEM (if available)
+
+### S11D Mine Example
+```bash
+cd examples
+python s11d_mine_example.py
+```
+
+This example demonstrates:
+- Single stereo pair over Vale's S11D iron ore mine in Brazil
+- Aerial survey generation along a flight line over the mine
+- Custom survey with detailed parameters
+
+The S11D mine example showcases the aerial survey feature, generating multiple stereo pairs along defined flight paths over one of the world's largest iron ore mining operations.
+
+### Offline Demo
+```bash
+cd examples
+python demo_offline.py
+```
+
+This demo uses synthetic imagery to demonstrate all features without requiring network access.
 
 ## Output Files
 

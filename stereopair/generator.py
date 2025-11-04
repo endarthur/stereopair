@@ -262,6 +262,121 @@ class StereoGenerator:
 
         return Image.fromarray(anaglyph)
 
+    def generate_aerial_survey(
+        self,
+        start_lat: float,
+        start_lon: float,
+        end_lat: float,
+        end_lon: float,
+        num_positions: int = 5,
+        zoom: int = 17,
+        base_height_ratio: float = 0.6,
+        convergence_angle: float = 10.0,
+        image_size: Tuple[int, int] = (512, 512),
+        overlap_percent: float = 60.0,
+    ) -> list:
+        """
+        Generate a series of stereo pairs along a flight line (aerial survey).
+
+        This simulates an aerial photogrammetric survey by creating multiple
+        stereo pairs along a linear path from start to end position.
+
+        Args:
+            start_lat: Starting latitude in decimal degrees
+            start_lon: Starting longitude in decimal degrees
+            end_lat: Ending latitude in decimal degrees
+            end_lon: Ending longitude in decimal degrees
+            num_positions: Number of stereo pair positions along the flight line
+            zoom: Zoom level for imagery (higher = more detail, typically 15-19)
+            base_height_ratio: Ratio of baseline to flying height (0.5-0.8 typical)
+            convergence_angle: Convergence angle in degrees (5-15 typical)
+            image_size: Size of output images in pixels (width, height)
+            overlap_percent: Percentage of overlap between consecutive positions (typical 60-80%)
+
+        Returns:
+            List of tuples, each containing (left_image, right_image, metadata_dict, position_index)
+        """
+        survey_results = []
+
+        # Calculate positions along the flight line
+        for i in range(num_positions):
+            # Linear interpolation between start and end
+            t = i / max(1, num_positions - 1) if num_positions > 1 else 0
+            current_lat = start_lat + t * (end_lat - start_lat)
+            current_lon = start_lon + t * (end_lon - start_lon)
+
+            print(f"Generating stereo pair {i+1}/{num_positions} at ({current_lat:.6f}, {current_lon:.6f})...")
+
+            # Generate stereo pair for this position
+            left, right, metadata = self.generate_stereo_pair(
+                center_lat=current_lat,
+                center_lon=current_lon,
+                zoom=zoom,
+                base_height_ratio=base_height_ratio,
+                convergence_angle=convergence_angle,
+                image_size=image_size,
+            )
+
+            if left is not None and right is not None:
+                # Add position index to metadata
+                metadata["survey_position"] = {
+                    "index": i,
+                    "total_positions": num_positions,
+                    "overlap_percent": overlap_percent,
+                }
+                survey_results.append((left, right, metadata, i))
+            else:
+                print(f"Warning: Failed to generate stereo pair for position {i+1}")
+
+        return survey_results
+
+    def export_aerial_survey(
+        self,
+        survey_results: list,
+        output_dir: str,
+        base_name: str = "survey",
+        export_anaglyph: bool = True,
+    ):
+        """
+        Export aerial survey results to files.
+
+        Args:
+            survey_results: List of survey results from generate_aerial_survey()
+            output_dir: Directory to save output files
+            base_name: Base name for output files
+            export_anaglyph: Whether to also export anaglyph images
+        """
+        import os
+        import json
+
+        # Create output directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Export each stereo pair
+        for left, right, metadata, position in survey_results:
+            prefix = os.path.join(output_dir, f"{base_name}_pos{position:03d}")
+            self.export_stereo_pair(left, right, prefix, metadata, export_anaglyph)
+
+        # Create survey overview metadata
+        survey_metadata = {
+            "survey_name": base_name,
+            "num_positions": len(survey_results),
+            "positions": [],
+        }
+
+        for _, _, metadata, position in survey_results:
+            survey_metadata["positions"].append({
+                "index": position,
+                "center": metadata["center"],
+                "geometry": metadata["geometry"],
+            })
+
+        # Save survey overview
+        overview_path = os.path.join(output_dir, f"{base_name}_survey_overview.json")
+        with open(overview_path, "w") as f:
+            json.dump(survey_metadata, f, indent=2)
+        print(f"\nSaved survey overview: {overview_path}")
+
     def export_stereo_pair(
         self,
         left_image: Image.Image,

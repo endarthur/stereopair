@@ -63,6 +63,77 @@ Tuple of (left_image, right_image, metadata):
 - `right_image` (PIL.Image): Right stereo image
 - `metadata` (dict): Camera parameters and stereo geometry
 
+##### `generate_aerial_survey()`
+
+Generate a series of stereo pairs along a flight line, simulating an aerial photogrammetric survey.
+
+```python
+survey_results = generator.generate_aerial_survey(
+    start_lat=-6.390,
+    start_lon=-50.385,
+    end_lat=-6.425,
+    end_lon=-50.387,
+    num_positions=5,
+    zoom=17,
+    base_height_ratio=0.6,
+    convergence_angle=10.0,
+    image_size=(512, 512),
+    overlap_percent=60.0
+)
+```
+
+**Parameters:**
+
+- `start_lat` (float): Starting latitude of flight line in decimal degrees
+- `start_lon` (float): Starting longitude of flight line in decimal degrees
+- `end_lat` (float): Ending latitude of flight line in decimal degrees
+- `end_lon` (float): Ending longitude of flight line in decimal degrees
+- `num_positions` (int): Number of stereo pair positions along the flight line (default: 5)
+- `zoom` (int): Zoom level for imagery (15-19 typical)
+- `base_height_ratio` (float): Ratio of baseline to flying height (0.5-0.8)
+- `convergence_angle` (float): Convergence angle in degrees (5-15 typical)
+- `image_size` (tuple): Output image size in pixels (width, height)
+- `overlap_percent` (float): Percentage of overlap between consecutive positions (typical 60-80%, default: 60.0)
+
+**Returns:**
+
+List of tuples, each containing:
+- `left_image` (PIL.Image): Left stereo image
+- `right_image` (PIL.Image): Right stereo image
+- `metadata` (dict): Camera parameters and stereo geometry with survey position info
+- `position_index` (int): Index of this position in the survey
+
+##### `export_aerial_survey()`
+
+Export aerial survey results to organized files.
+
+```python
+generator.export_aerial_survey(
+    survey_results=survey_results,
+    output_dir="survey_output",
+    base_name="my_survey",
+    export_anaglyph=True
+)
+```
+
+**Parameters:**
+
+- `survey_results` (list): List of survey results from generate_aerial_survey()
+- `output_dir` (str): Directory to save output files (will be created if it doesn't exist)
+- `base_name` (str): Base name for output files (default: "survey")
+- `export_anaglyph` (bool): Whether to export anaglyph images (default: True)
+
+**Output Files:**
+
+For each position:
+- `{base_name}_pos000_left.png` - Left stereo image
+- `{base_name}_pos000_right.png` - Right stereo image
+- `{base_name}_pos000_anaglyph.png` - Anaglyph (if enabled)
+- `{base_name}_pos000_metadata.json` - Metadata
+
+Plus a survey overview:
+- `{base_name}_survey_overview.json` - Survey metadata with all positions
+
 ##### `create_anaglyph()`
 
 Create an anaglyph 3D image from a stereo pair.
@@ -355,6 +426,64 @@ left, right, metadata = generator.generate_stereo_pair(
 ```
 
 ### Different Imagery Provider
+
+```python
+from stereopair import StereoGenerator, ESRIImageryProvider
+
+# Use ESRI instead of Google
+imagery_provider = ESRIImageryProvider()
+generator = StereoGenerator(imagery_provider=imagery_provider)
+
+left, right, metadata = generator.generate_stereo_pair(
+    center_lat=27.9881,
+    center_lon=86.9250,
+    zoom=16,
+    base_height_ratio=0.7,  # Stronger 3D effect
+    convergence_angle=12.0
+)
+```
+
+### Aerial Survey Generation
+
+Generate a series of stereo pairs along a flight line:
+
+```python
+from stereopair import StereoGenerator, ESRIImageryProvider
+
+# Create generator
+imagery_provider = ESRIImageryProvider()
+generator = StereoGenerator(imagery_provider=imagery_provider)
+
+# Generate aerial survey over a mining site
+survey_results = generator.generate_aerial_survey(
+    start_lat=-6.390,   # Northern end of flight line
+    start_lon=-50.385,
+    end_lat=-6.425,     # Southern end of flight line
+    end_lon=-50.387,
+    num_positions=5,    # 5 stereo pairs along the line
+    zoom=17,
+    base_height_ratio=0.6,
+    convergence_angle=10.0,
+    image_size=(1024, 1024),
+    overlap_percent=60.0  # Standard photogrammetric overlap
+)
+
+# Export all stereo pairs to organized directory
+generator.export_aerial_survey(
+    survey_results=survey_results,
+    output_dir="mining_survey",
+    base_name="site_survey",
+    export_anaglyph=True
+)
+
+# Result: Creates mining_survey/ directory with:
+#   - site_survey_pos000_left.png, *_right.png, *_anaglyph.png
+#   - site_survey_pos001_left.png, *_right.png, *_anaglyph.png
+#   - ... (one set per position)
+#   - site_survey_survey_overview.json
+```
+
+### Create Custom Anaglyph
 
 ```python
 from stereopair import StereoGenerator, ESRIImageryProvider
